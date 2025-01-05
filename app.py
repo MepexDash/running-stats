@@ -126,28 +126,60 @@ selected_goals_total = sum(individual_goals[name] for name in selected_runner if
 goal_percentage = (total_distance / selected_goals_total) * 100 if selected_goals_total > 0 else 0
 average_per_person = total_distance / len(selected_runner) if selected_runner else 0
 
-# Vis hovedstatistikk i kolonner
-col1, col2, col3 = st.columns(3)
+# Sjekk skjermstørrelse (desktop vs mobil)
+is_mobile = False
+try:
+    # Prøv å hente viewport bredde fra query params
+    import streamlit.components.v1 as components
+    viewport_width = st.experimental_get_query_params().get('vw', [1200])[0]
+    is_mobile = int(viewport_width) < 768
+except:
+    pass
 
-with col1:
-    st.markdown('<div class="stats-container">', unsafe_allow_html=True)
-    st.metric("Total distanse", f"{total_distance:.1f} km")
-    st.markdown('</div>', unsafe_allow_html=True)
+# Hovedtittel
+st.title("🏃 Løpestatistikk 2025")
+st.markdown("### Felles mål: 7350 km")
 
-with col2:
-    st.markdown('<div class="stats-container">', unsafe_allow_html=True)
-    if len(selected_runner) == len(individual_goals):
-        st.metric("Prosent av fellesmål", f"{(total_distance/7350*100):.1f}%")
-        st.progress(min(total_distance/7350, 1.0))
-    else:
-        st.metric("Prosent av individuelle mål", f"{goal_percentage:.1f}%")
-        st.progress(min(goal_percentage/100, 1.0))
-    st.markdown('</div>', unsafe_allow_html=True)
+# Vis hovedstatistikk - tilpasset layout for mobil
+if is_mobile:
+    # Mobil: Vertikal layout
+    for metric_container in [col1, col2, col3]:
+        with metric_container:
+            st.markdown('<div class="stats-container" style="margin-bottom: 10px;">', unsafe_allow_html=True)
+            if metric_container == col1:
+                st.metric("Total distanse", f"{total_distance:.1f} km")
+            elif metric_container == col2:
+                if len(selected_runner) == len(individual_goals):
+                    st.metric("% av fellesmål", f"{(total_distance/7350*100):.1f}%")
+                    st.progress(min(total_distance/7350, 1.0))
+                else:
+                    st.metric("% av ind. mål", f"{goal_percentage:.1f}%")
+                    st.progress(min(goal_percentage/100, 1.0))
+            else:
+                st.metric("Snitt per person", f"{average_per_person:.1f} km")
+            st.markdown('</div>', unsafe_allow_html=True)
+else:
+    # Desktop: Original horisontal layout
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown('<div class="stats-container">', unsafe_allow_html=True)
+        st.metric("Total distanse", f"{total_distance:.1f} km")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-with col3:
-    st.markdown('<div class="stats-container">', unsafe_allow_html=True)
-    st.metric("Gjennomsnitt per person", f"{average_per_person:.1f} km")
-    st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="stats-container">', unsafe_allow_html=True)
+        if len(selected_runner) == len(individual_goals):
+            st.metric("Prosent av fellesmål", f"{(total_distance/7350*100):.1f}%")
+            st.progress(min(total_distance/7350, 1.0))
+        else:
+            st.metric("Prosent av individuelle mål", f"{goal_percentage:.1f}%")
+            st.progress(min(goal_percentage/100, 1.0))
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col3:
+        st.markdown('<div class="stats-container">', unsafe_allow_html=True)
+        st.metric("Gjennomsnitt per person", f"{average_per_person:.1f} km")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # Grafer i scrollbar container
 st.markdown('<div class="table-container">', unsafe_allow_html=True)
