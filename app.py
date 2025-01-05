@@ -19,13 +19,20 @@ ACTIVITIES = ["Løping", "Gåing"]
 def load_data():
     if os.path.exists('running_data.json'):
         with open('running_data.json', 'r') as f:
-            return pd.DataFrame(json.load(f))
+            data = json.load(f)
+            df = pd.DataFrame(data)
+            if not df.empty:
+                df['dato'] = pd.to_datetime(df['dato']).dt.date
+            return df
     return pd.DataFrame(columns=['dato', 'løper', 'aktivitet', 'distanse', 'tid', 'tempo'])
 
 # Funksjon for å lagre data
 def save_data(df):
+    # Konverter dato-objekter til strenger før lagring
+    df_save = df.copy()
+    df_save['dato'] = df_save['dato'].astype(str)
     with open('running_data.json', 'w') as f:
-        json.dump(df.to_dict('records'), f)
+        json.dump(df_save.to_dict('records'), f)
 
 # Last eksisterende data
 df = load_data()
