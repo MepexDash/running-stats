@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for moderne styling
+# Custom CSS for moderne styling og mobil-responsivitet
 st.markdown("""
     <style>
     .main {
@@ -23,19 +23,35 @@ st.markdown("""
         background-color: #00cc99;
     }
     .big-font {
-        font-size: 24px !important;
+        font-size: 20px !important;
         font-weight: bold;
         color: #1f1f1f;
     }
     .medium-font {
-        font-size: 18px !important;
+        font-size: 16px !important;
         color: #2c3e50;
     }
     .stats-container {
         background-color: white;
-        padding: 20px;
+        padding: 12px;
         border-radius: 10px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow-x: auto;
+    }
+    /* Mobile-spesifikke justeringer */
+    @media (max-width: 640px) {
+        .stats-container {
+            padding: 8px;
+            margin: 4px 0;
+        }
+        .stMarkdown {
+            font-size: 14px;
+        }
+    }
+    /* Gjør tabeller scrollbare horisontalt på mobil */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -133,7 +149,8 @@ with col3:
     st.metric("Gjennomsnitt per person", f"{average_per_person:.1f} km")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Grafer
+# Grafer i scrollbar container
+st.markdown('<div class="table-container">', unsafe_allow_html=True)
 st.markdown("### 📊 Statistikk")
 
 # Tabs for ulike visualiseringer
@@ -171,7 +188,9 @@ with tab1:
         title='Distanse vs. individuelle mål',
         template='plotly_white',
         showlegend=False,
-        height=500
+        height=500,
+        margin=dict(l=20, r=20, t=40, b=20),  # Mindre marginer på mobil
+        autosize=True,
     )
     st.plotly_chart(fig_individual, use_container_width=True)
 
