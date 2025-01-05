@@ -17,22 +17,50 @@ ACTIVITIES = ["Løping", "Gåing"]
 
 # Funksjon for å laste data
 def load_data():
-    if os.path.exists('running_data.json'):
-        with open('running_data.json', 'r') as f:
-            data = json.load(f)
-            df = pd.DataFrame(data)
-            if not df.empty:
-                df['dato'] = pd.to_datetime(df['dato']).dt.date
-            return df
+    try:
+        if os.path.exists('running_data.json') and os.path.getsize('running_data.json') > 0:
+            with open('running_data.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                df = pd.DataFrame(data)
+                if not df.empty:
+                    df['dato'] = pd.to_datetime(df['dato']).dt.date
+                return df
+    except (json.JSONDecodeError, FileNotFoundError, ValueError) as e:
+        st.warning(f"Kunne ikke laste eksisterende data: {str(e)}")
+        # Hvis filen er korrupt, lag en backup
+        if os.path.exists('running_data.json'):
+            backup_name = f'running_data_backup_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
+            try:
+                os.rename('running_data.json', backup_name)
+                st.info(f"Lagde backup av eksisterende datafil: {backup_name}")
+            except:
+                pass
+    
     return pd.DataFrame(columns=['dato', 'løper', 'aktivitet', 'distanse', 'tid', 'tempo'])
 
 # Funksjon for å lagre data
 def save_data(df):
-    # Konverter dato-objekter til strenger før lagring
-    df_save = df.copy()
-    df_save['dato'] = df_save['dato'].astype(str)
-    with open('running_data.json', 'w') as f:
-        json.dump(df_save.to_dict('records'), f)
+    try:
+        # Konverter dato-objekter til strenger før lagring
+        df_save = df.copy()
+        df_save['dato'] = df_save['dato'].astype(str)
+        
+        # Sikre at mappen eksisterer
+        os.makedirs(os.path.dirname('running_data.json'), exist_ok=True)
+        
+        # Lagre til en midlertidig fil først
+        temp_file = 'running_data_temp.json'
+        with open(temp_file, 'w', encoding='utf-8') as f:
+            json.dump(df_save.to_dict('records'), f, ensure_ascii=False, indent=2)
+        
+        # Hvis lagring var vellykket, erstatt den gamle filen
+        if os.path.exists('running_data.json'):
+            os.remove('running_data.json')
+        os.rename(temp_file, 'running_data.json')
+        
+    except Exception as e:
+        st.error(f"Kunne ikke lagre data: {str(e)}")
+        raise e
 
 # Last eksisterende data
 df = load_data()
@@ -75,9 +103,12 @@ with st.form("registrering"):
         })
         
         df = pd.concat([df, ny_aktivitet], ignore_index=True)
-        save_data(df)
-        st.success("Aktivitet registrert!")
-        st.experimental_rerun()
+        try:
+            save_data(df)
+            st.success("Aktivitet registrert!")
+            st.experimental_rerun()
+        except Exception as e:
+            st.error("Kunne ikke lagre aktiviteten. Prøv igjen.")
 
 # Statistikk
 if not df.empty:
