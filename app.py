@@ -2,296 +2,151 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
-import numpy as np
+from datetime import datetime, date
+import json
+import os
 
-# Sett sidekonfigurasjon
-st.set_page_config(
-    page_title="Løpestatistikk 2025",
-    page_icon="🏃",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Sett sidekonfigurasjon for mobil
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 
-# Custom CSS for moderne styling og mobil-responsivitet
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f8f9fa;
-    }
-    .stProgress > div > div > div > div {
-        background-color: #00cc99;
-    }
-    .big-font {
-        font-size: 20px !important;
-        font-weight: bold;
-        color: #1f1f1f;
-    }
-    .medium-font {
-        font-size: 16px !important;
-        color: #2c3e50;
-    }
-    .stats-container {
-        background-color: white;
-        padding: 12px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        overflow-x: auto;
-    }
-    /* Mobile-spesifikke justeringer */
-    @media (max-width: 640px) {
-        .stats-container {
-            padding: 8px;
-            margin: 4px 0;
-        }
-        .stMarkdown {
-            font-size: 14px;
-        }
-    }
-    /* Gjør tabeller scrollbare horisontalt på mobil */
-    .table-container {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# Konstanter
+YEARLY_GOAL = 7350  # kilometer
+RUNNERS = ["Carl Frederik", "Kaia", "Miriam", "Torbjørn", "Henrik", 
+          "Eirik", "Charlotte", "Jens", "Helle", "Anders", "Joakim", "Silje"]
+ACTIVITIES = ["Løping", "Gåing"]
 
-# Definere individuelle mål
-individual_goals = {
-    "Helle": 1100,
-    "Torbjørn": 1100,
-    "Henrik": 1000,
-    "Joakim": 750,
-    "Eirik": 700,
-    "Carl Frederik": 700,
-    "Jens": 700,
-    "Miriam": 600,
-    "Anders": 500,
-    "Kaia": 100,
-    "Charlotte": 100,
-    "Silje": None  # Ingen definert mål
-}
+# Funksjon for å laste data
+def load_data():
+    if os.path.exists('running_data.json'):
+        with open('running_data.json', 'r') as f:
+            return pd.DataFrame(json.load(f))
+    return pd.DataFrame(columns=['dato', 'løper', 'aktivitet', 'distanse', 'tid', 'tempo'])
 
-# Hovedtittel
-st.title("🏃 Løpestatistikk 2025")
-st.markdown("### Felles mål: 7350 km")
+# Funksjon for å lagre data
+def save_data(df):
+    with open('running_data.json', 'w') as f:
+        json.dump(df.to_dict('records'), f)
 
-# Simuler eksempeldata
-def generate_sample_data():
-    names = list(individual_goals.keys())
-    current_date = datetime.now()
-    data = []
+# Last eksisterende data
+df = load_data()
+
+# App tittel
+st.title("🏃‍♂️ Løperegistrering 2025")
+
+# Registreringsskjema
+st.header("Registrer aktivitet")
+
+with st.form("registrering"):
+    col1, col2 = st.columns(2)
     
-    for name in names:
-        # Generer data for hver person for de siste 30 dagene
-        for i in range(30):
-            date = current_date - timedelta(days=i)
-            
-            # Sett daglig gjennomsnitt basert på årsmål eller standardverdi
-            if individual_goals[name] is not None:
-                daily_average = individual_goals[name] / 365 * 1.5  # Litt høyere for variasjon
-            else:
-                daily_average = 2.0  # Standard daglig gjennomsnitt for løpere uten mål
-                
-            distance = max(0, np.random.normal(daily_average, daily_average/2))
-            data.append({
-                'date': date.strftime('%Y-%m-%d'),
-                'name': name,
-                'distance': round(distance, 2)
-            })
-    
-    return pd.DataFrame(data)
-
-df = generate_sample_data()
-
-# Sidepanel for filtrering
-st.sidebar.header("Filtrer data")
-
-# Legg til "Velg alle" knapp
-if st.sidebar.button("Velg alle"):
-    selected_runner = list(individual_goals.keys())
-else:
-    selected_runner = st.sidebar.multiselect(
-        "Velg løpere",
-        options=list(individual_goals.keys()),
-        default=list(individual_goals.keys())
-    )
-
-# Beregn nøkkeltall
-filtered_df = df[df['name'].isin(selected_runner)]
-total_distance = filtered_df['distance'].sum()
-
-# Beregn måloppnåelse basert på valgte løpere
-selected_goals_total = sum(individual_goals[name] for name in selected_runner if individual_goals[name] is not None)
-goal_percentage = (total_distance / selected_goals_total) * 100 if selected_goals_total > 0 else 0
-average_per_person = total_distance / len(selected_runner) if selected_runner else 0
-
-# Sjekk skjermstørrelse (desktop vs mobil)
-is_mobile = False
-try:
-    # Prøv å hente viewport bredde fra query params
-    import streamlit.components.v1 as components
-    viewport_width = st.experimental_get_query_params().get('vw', [1200])[0]
-    is_mobile = int(viewport_width) < 768
-except:
-    pass
-
-# Hovedtittel
-st.title("🏃 Løpestatistikk 2025")
-st.markdown("### Felles mål: 7350 km")
-
-# Vis hovedstatistikk - tilpasset layout for mobil
-if is_mobile:
-    # Mobil: Vertikal layout
-    for metric_container in [col1, col2, col3]:
-        with metric_container:
-            st.markdown('<div class="stats-container" style="margin-bottom: 10px;">', unsafe_allow_html=True)
-            if metric_container == col1:
-                st.metric("Total distanse", f"{total_distance:.1f} km")
-            elif metric_container == col2:
-                if len(selected_runner) == len(individual_goals):
-                    st.metric("% av fellesmål", f"{(total_distance/7350*100):.1f}%")
-                    st.progress(min(total_distance/7350, 1.0))
-                else:
-                    st.metric("% av ind. mål", f"{goal_percentage:.1f}%")
-                    st.progress(min(goal_percentage/100, 1.0))
-            else:
-                st.metric("Snitt per person", f"{average_per_person:.1f} km")
-            st.markdown('</div>', unsafe_allow_html=True)
-else:
-    # Desktop: Original horisontal layout
-    col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown('<div class="stats-container">', unsafe_allow_html=True)
-        st.metric("Total distanse", f"{total_distance:.1f} km")
-        st.markdown('</div>', unsafe_allow_html=True)
-
+        løper = st.selectbox("Velg løper", RUNNERS)
+        aktivitet = st.selectbox("Velg aktivitet", ACTIVITIES)
+        dato = st.date_input("Dato", date.today())
+    
     with col2:
-        st.markdown('<div class="stats-container">', unsafe_allow_html=True)
-        if len(selected_runner) == len(individual_goals):
-            st.metric("Prosent av fellesmål", f"{(total_distance/7350*100):.1f}%")
-            st.progress(min(total_distance/7350, 1.0))
-        else:
-            st.metric("Prosent av individuelle mål", f"{goal_percentage:.1f}%")
-            st.progress(min(goal_percentage/100, 1.0))
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col3:
-        st.markdown('<div class="stats-container">', unsafe_allow_html=True)
-        st.metric("Gjennomsnitt per person", f"{average_per_person:.1f} km")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# Grafer i scrollbar container
-st.markdown('<div class="table-container">', unsafe_allow_html=True)
-st.markdown("### 📊 Statistikk")
-
-# Tabs for ulike visualiseringer
-tab1, tab2, tab3 = st.tabs(["Individuell statistikk", "Tidslinje", "Ukentlig oversikt"])
-
-with tab1:
-    # Stolpediagram for individuell statistikk med mållinjer
-    individual_stats = filtered_df.groupby('name')['distance'].sum().reset_index()
-    
-    # Legg til mållinjer for hver person
-    fig_individual = go.Figure()
-    
-    for name in individual_stats['name']:
-        distance = individual_stats[individual_stats['name'] == name]['distance'].iloc[0]
-        fig_individual.add_trace(go.Bar(
-            x=[name],
-            y=[distance],
-            name=f"{name} ({distance:.1f} km)",
-            text=[f"{distance:.1f} km"],
-            textposition='auto',
-        ))
+        distanse = st.number_input("Distanse (km)", min_value=0.0, step=0.1)
+        timer = st.number_input("Timer", min_value=0, step=1)
+        minutter = st.number_input("Minutter", min_value=0, max_value=59, step=1)
         
-        # Legg til mållinje hvis personen har et definert mål
-        if name in individual_goals and individual_goals[name] is not None:
-            fig_individual.add_trace(go.Scatter(
-                x=[name],
-                y=[individual_goals[name]],
-                mode='markers',
-                name=f"Mål: {individual_goals[name]} km",
-                marker=dict(symbol='line-ns', size=20, line=dict(width=2)),
-                showlegend=False
-            ))
+    submitted = st.form_submit_button("Registrer")
     
-    fig_individual.update_layout(
-        title='Distanse vs. individuelle mål',
-        template='plotly_white',
-        showlegend=False,
-        height=500,
-        margin=dict(l=20, r=20, t=40, b=20),  # Mindre marginer på mobil
-        autosize=True,
-    )
-    st.plotly_chart(fig_individual, use_container_width=True)
+    if submitted:
+        tid_minutter = timer * 60 + minutter
+        if distanse > 0:
+            tempo = round(tid_minutter / distanse, 1)
+        else:
+            tempo = 0
+            
+        ny_aktivitet = pd.DataFrame({
+            'dato': [dato],
+            'løper': [løper],
+            'aktivitet': [aktivitet],
+            'distanse': [distanse],
+            'tid': [tid_minutter],
+            'tempo': [tempo]
+        })
+        
+        df = pd.concat([df, ny_aktivitet], ignore_index=True)
+        save_data(df)
+        st.success("Aktivitet registrert!")
+        st.experimental_rerun()
 
-with tab2:
-    # Linjediagram for utvikling over tid
-    daily_progress = filtered_df.groupby('date')['distance'].sum().reset_index()
-    daily_progress['cumulative'] = daily_progress['distance'].cumsum()
+# Statistikk
+if not df.empty:
+    st.header("Statistikk")
     
-    fig_progress = px.line(
-        daily_progress,
-        x='date',
-        y='cumulative',
-        title='Kumulativ distanse over tid',
-        template='plotly_white'
-    )
+    # Total distanse og måloppnåelse
+    total_km = df['distanse'].sum()
+    progress = (total_km / YEARLY_GOAL) * 100
     
-    # Legg til mållinjer basert på valgte løpere
-    if len(selected_runner) == len(individual_goals):
-        fig_progress.add_hline(
-            y=7350,
-            line_dash="dash",
-            annotation_text="Fellesmål: 7350 km",
-            annotation_position="bottom right"
-        )
-    else:
-        fig_progress.add_hline(
-            y=selected_goals_total,
-            line_dash="dash",
-            annotation_text=f"Samlede individuelle mål: {selected_goals_total} km",
-            annotation_position="bottom right"
-        )
+    # Beregn forventet progress basert på dagens dato
+    days_in_year = 366 if date.today().year % 4 == 0 else 365
+    day_of_year = date.today().timetuple().tm_yday
+    expected_progress = (day_of_year / days_in_year) * 100
     
-    st.plotly_chart(fig_progress, use_container_width=True)
-
-with tab3:
-    # Ukentlig oversikt
-    filtered_df['date'] = pd.to_datetime(filtered_df['date'])
-    filtered_df['week'] = filtered_df['date'].dt.isocalendar().week
-    weekly_stats = filtered_df.groupby(['week', 'name'])['distance'].sum().reset_index()
+    col1, col2 = st.columns(2)
     
-    fig_weekly = px.bar(
-        weekly_stats,
-        x='week',
-        y='distance',
-        color='name',
-        title='Ukentlig distanse per person',
-        barmode='group',
-        template='plotly_white'
-    )
-    st.plotly_chart(fig_weekly, use_container_width=True)
+    with col1:
+        st.metric("Total distanse", f"{total_km:.1f} km")
+    with col2:
+        st.metric("Måloppnåelse", f"{progress:.1f}%")
+    
+    # Fremgangsmåler
+    fig = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        value = progress,
+        delta = {'reference': expected_progress},
+        gauge = {
+            'axis': {'range': [None, 100]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [0, expected_progress], 'color': "lightgray"},
+                {'range': [expected_progress, 100], 'color': "white"}
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': expected_progress
+            }
+        },
+        title = {'text': "Måloppnåelse vs. Forventet"}
+    ))
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Statistikk per løper
+    løper_stats = df.groupby('løper')['distanse'].agg(['sum', 'count']).round(1)
+    løper_stats.columns = ['Total distanse (km)', 'Antall aktiviteter']
+    løper_stats = løper_stats.sort_values('Total distanse (km)', ascending=False)
+    
+    # Visualiser løperstatistikk
+    fig = px.bar(løper_stats, 
+                 x=løper_stats.index, 
+                 y='Total distanse (km)',
+                 title="Distanse per løper")
+    fig.update_layout(xaxis_title="Løper", yaxis_title="Total distanse (km)")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Vis detaljert statistikk
+    st.subheader("Detaljert statistikk per løper")
+    st.dataframe(løper_stats, use_container_width=True)
+    
+    # Månedlig oversikt
+    df['måned'] = pd.to_datetime(df['dato']).dt.strftime('%B')
+    monthly_stats = df.groupby('måned')['distanse'].sum().round(1)
+    
+    fig = px.bar(monthly_stats, 
+                 title="Distanse per måned")
+    fig.update_layout(xaxis_title="Måned", yaxis_title="Total distanse (km)")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Vis siste aktiviteter
+    st.subheader("Siste aktiviteter")
+    siste_aktiviteter = df.sort_values('dato', ascending=False).head(10)
+    siste_aktiviteter['dato'] = pd.to_datetime(siste_aktiviteter['dato']).dt.strftime('%d.%m.%Y')
+    siste_aktiviteter['tid'] = siste_aktiviteter['tid'].apply(lambda x: f"{int(x//60)}t {int(x%60)}m")
+    st.dataframe(siste_aktiviteter[['dato', 'løper', 'aktivitet', 'distanse', 'tid', 'tempo']], 
+                use_container_width=True)
 
-# Leaderboard med måloppnåelse
-st.markdown("### 🏆 Toppliste")
-leaderboard = filtered_df.groupby('name')['distance'].sum().sort_values(ascending=False)
-
-for i, (name, distance) in enumerate(leaderboard.items(), 1):
-    goal = individual_goals[name]
-    if goal is not None:
-        progress = (distance / goal) * 100
-        st.markdown(f"{i}. **{name}**: {distance:.1f} km ({progress:.1f}% av personlig mål på {goal} km)")
-    else:
-        st.markdown(f"{i}. **{name}**: {distance:.1f} km")
-
-# Motiverende melding basert på fremgang
-if goal_percentage < 25:
-    st.info("💪 Vi har en god vei å gå - la oss holde motivasjonen oppe!")
-elif goal_percentage < 50:
-    st.info("🎯 Vi er på god vei mot målet!")
-elif goal_percentage < 75:
-    st.success("🌟 Imponerende innsats! Vi nærmer oss målet!")
 else:
-    st.success("🎉 Fantastisk jobbet! Målet er innen rekkevidde!")
+    st.info("Ingen aktiviteter registrert ennå. Registrer din første aktivitet ovenfor!")
